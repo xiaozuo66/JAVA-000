@@ -1,0 +1,113 @@
+本地环境JDK8
+
+默认使用并行GC  mac环境下运行结果如下图，电脑配置 16G
+
+
+
+
+问题1：为什么老年代比年轻代空间还小？（windows测试不是这样）
+问题2：为什么年轻代不是eden+from+to,而是eden+from?（windows测试也是这样）
+
+Win10环境下:
+java -XX:+PrintGCDetails GCLogAnalysis
+使用默认GC收集器，产生3770个对象，
+发生4次full GC ，每次Full GC老年代占用空间都会增加。并且年轻代回收空间大于老年代增加的空间，说明，有对象从年轻代被回收，同时有对象晋升到老年代。
+
+GC导致的最长暂停时间大约0.11秒
+
+第二次运行：产生8064个对象，GC最长暂停时间0.05秒
+第三次运行：产生8921个对象，GC最长暂停时间0.05秒
+
+java -XX:+PrintGCDetails -Xms512m -Xmx512m GCLogAnalysis
+产生对象7315个，发生7次full GC，最大暂停时间0.05
+
+运行几次对象个数略微变化，但是GC次数和最大暂停时间未发生变化
+
+java -XX:+PrintGCDetails -Xms1g -Xmx1g GCLogAnalysis
+仅发生1次full GC，用时0.0615748 secs，导致暂停时间0.06秒。
+
+java -XX:+PrintGCDetails -Xms2g -Xmx2g GCLogAnalysis
+产生9923对象，未发生full GC
+
+一、使用串行GC
+
+1、java -XX:+UseSerialGC -XX:+PrintGCDetails GCLogAnalysis
+产生7575个对象，，发生4次ful GC。GC最长暂停时间大约是0.07秒
+
+第二次运行，产生7851个对象，GC最长暂停时间0.1秒。
+
+ java -XX:+PrintGCDetails -Xms512m -Xmx512m -XX:+UseSerialGC GCLogAnalysis
+产生8320个对象，5次full  GC，最大暂停时间0.05秒
+
+java -XX:+PrintGCDetails -Xms1g -Xmx1g -XX:+UseSerialGC GCLogAnalysis
+产生9538个对象，发生1次Full  GC，暂停时间0.06秒
+多次运行，有时候不发生full  GC，不发生full GC时，程序运行结束年轻代基本上会占满。
+
+java -XX:+PrintGCDetails -Xms2g -Xmx2g -XX:+UseSerialGC GCLogAnalysis
+产生8441个对象，未发生full GC
+
+二、使用CMS-GC
+
+1、java -XX:+PrintGCDetails -Xms512m -Xmx512m -XX:+UseConcMarkSweepGC GCLogAnalysis
+
+产生8498个对象，full GC多次发生，但是每次发生暂停时间都很短，大部分阶段都不会发生暂停
+[GC (CMS Initial Mark) [1 CMS-initial-mark: 209920K(349568K)] 228187K(506816K), 0.0002148 secs] [Times: user=0.00 sys=0.00, real=0.00 secs]
+---初始标记
+[CMS-concurrent-mark-start]
+[CMS-concurrent-mark: 0.007/0.007 secs] [Times: user=0.00 sys=0.00, real=0.01 secs]
+---并发标记
+[CMS-concurrent-preclean-start]
+[CMS-concurrent-preclean: 0.001/0.001 secs] [Times: user=0.00 sys=0.00, real=0.00 secs]
+[CMS-concurrent-abortable-preclean-start]
+
+CMS处理过程中还会发生局部GC？
+
+[GC (Allocation Failure) [ParNew: 157248K->17472K(157248K), 0.0279559 secs] 367168K->266112K(506816K), 0.0281452 secs] [Times: user=0.05 sys=0.00, real=0.03 secs]
+[GC (Allocation Failure) [ParNew: 157177K->17472K(157248K), 0.0305787 secs] 405818K->309722K(506816K), 0.0308167 secs] [Times: user=0.13 sys=0.00, real=0.03 secs]
+[GC (Allocation Failure) [ParNew: 157248K->17472K(157248K), 0.0330585 secs] 449498K->356180K(506816K), 0.0332144 secs] [Times: user=0.13 sys=0.00, real=0.03 secs]
+
+[CMS-concurrent-abortable-preclean: 0.005/0.163 secs] [Times: user=0.42 sys=0.00, real=0.16 secs]
+[GC (CMS Final Remark) [YG occupancy: 20847 K (157248 K)][Rescan (parallel) , 0.0004461 secs][weak refs processing, 0.0000256 secs][class unloading, 0.0004342 secs][scrub symbol table, 0.0004566 secs][scrub string table, 0.0001413 secs][1 CMS-remark: 338708K(349568K)] 359556K(506816K), 0.0017679 secs] [Times: user=0.00 sys=0.00, real=0.00 secs]
+[CMS-concurrent-sweep-start]
+[CMS-concurrent-sweep: 0.001/0.001 secs] [Times: user=0.00 sys=0.00, real=0.00 secs]
+---清除
+[CMS-concurrent-reset-start]
+[CMS-concurrent-reset: 0.001/0.001 secs] [Times: user=0.00 sys=0.00, real=0.00 secs]
+
+---重置
+
+[GC (Allocation Failure) [ParNew: 157248K->157248K(157248K), 0.0002306 secs][CMS: 299699K->270499K(349568K), 0.0458642 secs] 456947K->270499K(506816K), [Metaspace: 2620K->2620K(1056768K)], 0.0464989 secs] [Times: user=0.05 sys=0.00, real=0.05 secs]
+
+三、使用G1-GC
+java -XX:+PrintGCDetails -Xms512m -Xmx512m -XX:+UseG1GC GCLogAnalysis
+产生7567个对象。
+GC pause (G1 Humongous Allocation) (young) (initial-mark) 293M->210M(512M), 0.0084348 secs]
+[GC concurrent-root-region-scan-start]
+[GC concurrent-root-region-scan-end, 0.0004642 secs]
+[GC concurrent-mark-start]
+[GC concurrent-mark-end, 0.0033641 secs]
+[GC remark, 0.0016744 secs]
+[GC cleanup 233M->219M(512M), 0.0006024 secs]
+[GC concurrent-cleanup-start]
+[GC concurrent-cleanup-end, 0.0001203 secs]
+[GC pause (G1 Evacuation Pause) (young)-- 395M->271M(512M), 0.0124370 secs]
+[GC pause (G1 Evacuation Pause) (mixed) 275M->268M(512M), 0.0042051 secs]
+
+多次运行产生对象个数在8000左右。
+
+java -XX:+PrintGCDetails -Xms1g -Xmx1g -XX:+UseG1GC GCLogAnalysis
+产生8796个对象。
+多次运行9555个/8944/8320
+
+java -XX:+PrintGCDetails -Xms2g -Xmx2g -XX:+UseG1GC GCLogAnalysis
+产生7874个对象。多次运行，基本都在8000个对象以内。GC次数明显减少，且没有发生full GC。
+
+java -XX:+PrintGC -Xms2g -Xmx2g -XX:G1HeapRegionSize=4m -XX:+UseG1GC GCLogAnalysis
+随着参数G1HeapRegionSize从1m调整到4m，创建对象个数增加，发生GC的次数也增加了。
+
+
+总结：JDK8默认使用的是串行GC
+相同的堆配置，并行GC导致的STW时间比串行GC要短。
+CMS处理器在一次full GC过程中，还会触发年轻代的gc。
+G1收集器可以调整每个region大小，随着每个region的增大（一定范围内），吞吐量会提升，创建的对象增多。
+串行收集器和并行收集器在年轻代和full GC 时都会发生STW。
