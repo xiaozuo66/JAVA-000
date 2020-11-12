@@ -4,7 +4,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 实现方式1：利用引用传递，把主线程的变量传递给计算的线程，计算结束从变量中获取到结果
+ * 实现方式1：利用引用传递，把主线程的变量传递给计算的线程，计算结束从变量中获取到结果,
+ * 跟ThreadLocal类似
  */
 public class HomeworkDemo1 {
 
