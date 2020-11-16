@@ -1,0 +1,3 @@
+spring:
+  first:
+    enabled:true
