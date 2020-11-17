@@ -7,4 +7,10 @@ public class Klass {
     
     List<Student> students;
 
+    @Override
+    public String toString() {
+        return "Klass{" +
+                "students=" + students +
+                '}';
+    }
 }

@@ -1,9 +1,12 @@
 package io.kimmking.springboot.bean;
 
 
+import lombok.Data;
+
 import java.io.Serializable;
 
-
+//不加该注解，无法转换Property
+@Data
 public class Student implements Serializable {
     
     private int id;
@@ -15,5 +18,13 @@ public class Student implements Serializable {
     
     public Student create(){
         return new Student();
+    }
+
+    @Override
+    public String toString() {
+        return "Student{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                '}';
     }
 }
