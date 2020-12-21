@@ -2,17 +2,17 @@ package io.kimmking.rpcfx.api;
 
 public class RpcfxResponse {
 
-    private Object result;
+    private String result;
 
     private boolean status;
 
     private Exception exception;
 
-    public Object getResult() {
+    public String getResult() {
         return result;
     }
 
-    public void setResult(Object result) {
+    public void setResult(String result) {
         this.result = result;
     }
 

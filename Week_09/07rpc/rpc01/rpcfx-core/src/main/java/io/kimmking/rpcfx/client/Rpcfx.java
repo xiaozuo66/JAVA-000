@@ -11,14 +11,32 @@ import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.concurrent.FutureCallback;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
+import org.apache.http.impl.nio.client.HttpAsyncClients;
+import org.apache.http.impl.nio.reactor.IOReactorConfig;
+import org.apache.http.protocol.HTTP;
+import org.apache.http.util.EntityUtils;
 import org.springframework.cglib.proxy.Enhancer;
 import org.springframework.cglib.proxy.MethodInterceptor;
 import org.springframework.cglib.proxy.MethodProxy;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 @Slf4j
 public final class Rpcfx {
@@ -63,23 +81,44 @@ public final class Rpcfx {
             if (!response.isStatus()) {
                 throw response.getException();
             }
-            return response.getResult();
+            return JSON.parse(response.getResult());
         }
 
-        private RpcfxResponse post(RpcfxRequest req, String url) throws IOException {
+        private RpcfxResponse post(RpcfxRequest req, String url) throws IOException, ExecutionException, InterruptedException {
             String reqJson = JSON.toJSONString(req);
             System.out.println("req json: "+reqJson);
 
             // 1.可以复用client
             // 2.尝试使用httpclient或者netty client
-            OkHttpClient client = new OkHttpClient();
-            final Request request = new Request.Builder()
-                    .url(url)
-                    .post(RequestBody.create(JSONTYPE, reqJson))
-                    .build();
-            String respJson = client.newCall(request).execute().body().string();
-            System.out.println("resp json: "+respJson);
-            return JSON.parseObject(respJson, RpcfxResponse.class);
+//            OkHttpClient client = new OkHttpClient();
+//            final Request request = new Request.Builder()
+//                    .url(url)
+//                    .post(RequestBody.create(JSONTYPE, reqJson))
+//                    .build();
+//            String respJson = client.newCall(request).execute().body().string();
+//            System.out.println("resp json: "+respJson);
+
+            HttpPost httpPost = new HttpPost(url);
+
+            StringEntity entity = new StringEntity(reqJson, "UTF-8");
+            httpPost.setEntity(entity);
+            httpPost.setHeader("Content-Type", "application/json;charset=utf8");
+
+            CloseableHttpClient httpClient = HttpClientBuilder.create().build();
+
+            RequestConfig requestConfig = RequestConfig.custom()
+                    // 设置连接超时时间(单位毫秒)
+                    .setConnectTimeout(5000)
+                    // 设置请求超时时间(单位毫秒)
+                    .setConnectionRequestTimeout(5000)
+                    // socket读写超时时间(单位毫秒)
+                    .setSocketTimeout(5000)
+                    // 设置是否允许重定向(默认为true)
+                    .setRedirectsEnabled(true).build();
+
+            CloseableHttpResponse response= httpClient.execute(httpPost);
+
+            return JSON.parseObject(EntityUtils.toString(response.getEntity()), RpcfxResponse.class);
         }
     }
 

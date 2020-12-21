@@ -46,7 +46,7 @@ public class RpcfxServerApplication {
 	}
 
 	// 能否去掉name
-	//
+	//name去掉也是可以的
 	@Bean
 	public UserService createUserService(){
 		return new UserServiceImpl();
